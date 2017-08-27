@@ -22,11 +22,12 @@ REGIONS_TO_ENDPOINTS_MAP = {
 }
 
 class Riot:
-	def __init__(self, api_key, redis_creds=None):
+	def __init__(self, api_key, redis_creds=None, crawl=False):
 		self.key = api_key
 		self.redis = RedisHelper(redis_creds=redis_creds)
 		self.mongo = MongoHelper()
 		self.queue = QueueHelper()
+		self.crawl = crawl
 
 	def get_match(self, gameId, region):
 		region = REGIONS_TO_ENDPOINTS_MAP[region.lower()]
@@ -52,7 +53,7 @@ class Riot:
 
 		if current_a_count is not None:
 			current_a_count = float(current_a_count.split(',')[0].split(':')[0])
-		
+
 		#if any of our counts are withing 15% of the it's rate limit, wait
 		#TODO: tweak this variables to reach balance. It should be based on number of workers and size of limits
 		if current_a_count is not None and current_a_limit is not None and current_m_count is not None and current_m_limit is not None:
@@ -163,7 +164,7 @@ class Riot:
 
 		elif accountId == '':
 			#Try and fill data from mongo
-			profile = self.mongo.get_player_profile(summonerId=summonerId, region=region)				
+			profile = self.mongo.get_player_profile(summonerId=summonerId, region=region)
 			if profile is None:
 				# new player, get from riot
 				isNew = True
@@ -201,17 +202,10 @@ class Riot:
 				raise
 			for league in leagues:
 				for player in league['entries']:
-					if player['playerOrTeamId'] != summonerId and not self.mongo.player_exists(summonerId=player['playerOrTeamId'], region=region):
+					if self.crawl is True and player['playerOrTeamId'] != summonerId and not self.mongo.player_exists(summonerId=player['playerOrTeamId'], region=region):
 						self.queue.put_player(summonerId=player['playerOrTeamId'], region=region)
 					elif player['playerOrTeamId'] == summonerId:
 						meta = { 'tier': league['tier'], 'queue': league['queue'], 'name': league['name'] }
 						self.mongo.update_leagues(summonerId=summonerId, league=player, meta=meta, region=region)
 
 		return profile['accountId'], profile['id']
-					
-
-				
-
-
-
-

@@ -8,12 +8,12 @@ import sys
 import traceback
 import logging
 
-def run():
-
+def run(key, crawl=False):
 	logging.basicConfig(format='%(asctime)s %(message)s', datefmt='%m/%d/%Y %I:%M:%S %p', level=logging.DEBUG)
-	riotHelper = Riot('RGAPI-78bcea57-0d6b-4dfa-886e-d1e95d3a76c3')
+	riotHelper = Riot(key, crawl=crawl)
 	redis = RedisHelper()
 	queue = QueueHelper()
+	sys.exit(0)
 
 	#queue.put_player(accountId=406869, summonerId=411969, region='las')
 
@@ -36,5 +36,8 @@ def run():
 
 
 if __name__ == "__main__":
-	parser = argparse.ArgumentParser(description="A tool for getting summoners data")
-	run()
+	parser = argparse.ArgumentParser(description="A tool for getting summoners data", epilog="Remember to set your own API key!")
+	parser.add_argument('key', help="Riot's API key")
+	parser.add_argument('-c', '--crawl', action="store_true", help="True if we should crawl the matchlist for new players (defaults to False)", default=False)
+	args = parser.parse_args()
+	run(args.key, args.crawl)
