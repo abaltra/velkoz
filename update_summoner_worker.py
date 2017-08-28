@@ -13,7 +13,6 @@ def run(key, crawl=False):
 	riotHelper = Riot(key, crawl=crawl)
 	redis = RedisHelper()
 	queue = QueueHelper()
-	sys.exit(0)
 
 	#queue.put_player(accountId=406869, summonerId=411969, region='las')
 
@@ -28,6 +27,7 @@ def run(key, crawl=False):
 			# get recent matches
 			#  - use recent matches to get more players
 			riotHelper.get_recent_matches(accountId=accountId, summonerId=summonerId, region=region)
+			queue.put_player(accountId=accountId, summonerId=summonerId, region=region)
 		except (RiotRateError, RiotInvalidKeyError, RiotDataNotFoundError, RiotDataUnavailable) as ex:
 			logging.warning("Could not update %s because %s. Skipping and adding to back of the queue" % (summoner, ex.message))
 			queue.put_player(accountid, summonerid, region)

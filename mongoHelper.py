@@ -25,6 +25,10 @@ class MongoHelper:
 
 		self.db['matchlist'].bulk_write(ops)
 
+	def save_match_agg(self, match, incs):
+		logging.info('Updating aggregates for accountId: %s in %s' % ( match['accountId'], match['region'] ))
+		self.db['match_aggregates'].update(match, { '$inc': incs }, upsert=True)
+
 	def update_profile(self, profile, region):
 		logging.info('Updating profile for accountId: %s in %s' % ( profile['accountId'], region ))
 		profile['cleanName'] = profile['name'].replace(' ', '').lower()
@@ -65,7 +69,7 @@ class MongoHelper:
 			return self.player_exists_by_summoner(summonerId=summonerId, region=region)
 
 		elif summonerId is None:
-			return player_exists_by_account(accountId=accountId, region=region)			
+			return player_exists_by_account(accountId=accountId, region=region)
 
 	def player_exists_by_summoner(self, summonerId, region):
 		return self.db['summoner_profiles'].find_one({ 'id': summonerId, 'region': region }) != None
