@@ -156,6 +156,7 @@ class Riot:
 
 
 	def retrieve_and_parse_match(self, summonerId, matches, region):
+		stats_to_aggregate = ['kills', 'deaths', 'assists', 'totalDamageDealt', 'magicDamageDealt', 'physicalDamageDealt', 'trueDamageDealt', 'totalDamageDealtToChampions', 'magicDamageDealtToChampions', 'physicalDamageDealtToChampions', 'trueDamageDealtToChampions', 'timeCCingOthers', 'totalDamageTaken', 'magicalDamageTaken', 'physicalDamageTaken', 'trueDamageTaken', 'totalHeal', 'totalUnitsHealed', 'damageSelfMitigated', 'damageDealtToObjectives', 'damageDealtToTurrets', 'goldEarned', 'goldSpent', 'turretKills', 'inhibitorKills', 'totalMinionsKilled', 'neutralMinionsKilled', 'neutralMinionsKilledTeamJungle', 'neutralMinionsKilledEnemyJungle', 'totalTimeCrowdControlDealt', 'visionWardsBoughtInGame', 'sightWardsBoughtInGame', 'wardsPlaced', 'wardsKilled']
 		for match in matches:
 			try:
 				if match['queue'] in QUEUE_ID_TO_VALUE_MAP and match['queue'] in TRACKED_QUEUE_IDS:
@@ -163,6 +164,16 @@ class Riot:
 					participant_identity = None
 					participant = None
 					match_doc = dict()
+					totals_incs = dict()
+					team_incs = dict()
+					match_incs = dict()
+					match_doc['region'] = region
+					match_doc['queueId'] = match['queue']
+					match_doc['lane'] = match['lane']
+					match_doc['role'] = match['role']
+					match_doc['championId'] = match['champion']
+					match_doc['season'] = match['season']
+
 					for _participant_identity in m['participantIdentities']:
 						if 'player' in _participant_identity and _participant_identity['player']['summonerId'] == summonerId:
 							#Found the player we are gathering data for
@@ -171,75 +182,53 @@ class Riot:
 					if participant_identity is None:
 						raise ValueError('Summoner %s not found in match %s from %s' % (summonerId, match['matchId'], region))
 
-					for participant in m['participants']:
-						if participant['participantId'] == participant_identity['participantId']:
-							participant = participant
+					for _participant in m['participants']:
+						#We need to find the correct participant's team first
+						if _participant['participantId'] == participant_identity['participantId']:
+							participant = _participant
+							break #no need to keep going
 
 					if participant is None:
 						raise ValueError('Participant %s not found in match %s from %s' % (participant_id, match['matchId'], region))
 
-					match_doc = dict()
+					for _participant in m['participants']:
+						#now that we have the team, we loop through all of them again, aggregating
+						if _participant['teamId'] == participant['teamId']:
+							#teammate or same player, we aggregate to team stats
+							pstats = _participant['stats']
+							for stat in stats_to_aggregate:
+								team_incs[stat + 'ByTeam'] = pstats.get(stat, 0) if team_incs.get(stat + 'ByTeam', None) is None else team_incs.get(stat + 'ByTeam') + pstats.get(stat, 0)
+
+						if _participant['participantId'] == participant['participantId']:
+							#lets add the aggregates specific to our guy
+							pstats = _participant['stats']
+							for stat in stats_to_aggregate:
+								match_incs[stat] = pstats.get(stat, 0) if match_incs.get(stat, None) is None else match_incs.get(stat) + pstats.get(stat, 0)
+							match_incs['firstBloodKills'] = 1 if pstats.get('firstBloodKill', False) else 0
+							match_incs['firstBloodAssists'] = 1 if pstats.get('firstBloodAssist', False) else 0
+							match_incs['firstTowerKills'] = 1 if pstats.get('firstTowerKill', False) else 0
+							match_incs['firstTowerAssists'] = 1 if pstats.get('firstTowerAssist', False) else 0
+							match_incs['firstInhibitorKills'] = 1 if pstats.get('firstInhibitorKill', False) else 0
+
+						#now add them to the match total, regardless of team
+						for stat in stats_to_aggregate:
+							pstats = _participant['stats']
+							totals_incs[stat + 'ByMatch'] = pstats.get(stat, 0) if totals_incs.get(stat + 'ByMatch', None) is None else totals_incs.get(stat + 'ByMatch') + pstats.get(stat, 0)
+
 					match_doc['summonerId'] = participant_identity['player']['summonerId']
 					match_doc['accountId'] = participant_identity['player']['currentAccountId']
-					match_doc['region'] = region
-					match_doc['queueId'] = match['queue']
-					match_doc['lane'] = match['lane']
-					match_doc['role'] = match['role']
-					match_doc['championId'] = match['champion']
-					match_doc['season'] = match['season']
 
-					match_incs = dict()
 
 					for team in m['teams']:
 						if team['teamId'] == participant['teamId']:
 							match_incs['count'] = 1 #track of how many matches for this combination we've seen so far
 							match_incs['redSideMatches'] = 1 if team['teamId'] == 100 else 0
 							match_incs['blueSideMatches'] = 1 if team['teamId'] == 200 else 0
-							match_incs['kills'] = participant['stats'].get('kills', 0)
-							match_incs['deaths'] = participant['stats'].get('deaths', 0)
-							match_incs['assists'] = participant['stats'].get('assists', 0)
-							match_incs['killingSprees'] = participant['stats'].get('killingSprees', 0)
-							match_incs['totalDamageDealt'] = participant['stats'].get('totalDamageDealt', 0)
-							match_incs['magicDamageDealt'] = participant['stats'].get('magicDamageDealt', 0)
-							match_incs['physicalDamageDealt'] = participant['stats'].get('physicalDamageDealt', 0)
-							match_incs['trueDamageDealt'] = participant['stats'].get('trueDamageDealt', 0)
-							match_incs['totalDamageDealtToChampions'] = participant['stats'].get('totalDamageDealtToChampions', 0)
-							match_incs['magicDamageDealtToChampions'] = participant['stats'].get('magicDamageDealtToChampions', 0)
-							match_incs['physicalDamageDealtToChampions'] = participant['stats'].get('physicalDamageDealtToChampions', 0)
-							match_incs['trueDamageDealtToChampions'] = participant['stats'].get('trueDamageDealtToChampions', 0)
-							match_incs['totalHeal'] = participant['stats'].get('totalHeal', 0)
-							match_incs['totalUnitsHealed'] = participant['stats'].get('totalUnitsHealed', 0)
-							match_incs['damageSelfMitigated'] = participant['stats'].get('damageSelfMitigated', 0)
-							match_incs['damageDealtToObjectives'] = participant['stats'].get('damageDealtToObjectives', 0)
-							match_incs['damageDealtToTurrets'] = participant['stats'].get('damageDealtToTurrets', 0)
-							match_incs['largestKillingSpree'] = participant['stats'].get('largestKillingSpree', 0)
-							match_incs['largestMultiKill'] = participant['stats'].get('largestMultiKill', 0)
-							match_incs['timeCCingOthers'] = participant['stats'].get('timeCCingOthers', 0)
-							match_incs['totalDamageTaken'] = participant['stats'].get('totalDamageTaken', 0)
-							match_incs['magicalDamageTaken'] = participant['stats'].get('magicalDamageTaken', 0)
-							match_incs['physicalDamageTaken'] = participant['stats'].get('physicalDamageTaken', 0)
-							match_incs['trueDamageTaken'] = participant['stats'].get('trueDamageTaken', 0)
-							match_incs['goldEarned'] = participant['stats'].get('goldEarned', 0)
-							match_incs['goldSpent'] = participant['stats'].get('goldSpent', 0)
-							match_incs['turretKills'] = participant['stats'].get('turretKills', 0)
-							match_incs['inhibitorKills'] = participant['stats'].get('inhibitorKills', 0)
-							match_incs['totalMinionsKilled'] = participant['stats'].get('totalMinionsKilled', 0)
-							match_incs['neutralMinionsKilled'] = participant['stats'].get('neutralMinionsKilled', 0)
-							match_incs['neutralMinionsKilledTeamJungle'] = participant['stats'].get('neutralMinionsKilledTeamJungle', 0)
-							match_incs['neutralMinionsKilledEnemyJungle'] = participant['stats'].get('neutralMinionsKilledEnemyJungle', 0)
-							match_incs['totalTimeCrowdControlDealt'] = participant['stats'].get('totalTimeCrowdControlDealt', 0)
-							match_incs['visionWardsBoughtInGame'] = participant['stats'].get('visionWardsBoughtInGame', 0)
-							match_incs['sightWardsBoughtInGame'] = participant['stats'].get('sightWardsBoughtInGame', 0)
-							match_incs['wardsPlaced'] = participant['stats'].get('wardsPlaced', 0)
-							match_incs['wardsKilled'] = participant['stats'].get('wardsKilled', 0)
-							match_incs['firstBloodKills'] = 1 if participant['stats'].get('firstBloodKill', False) else 0
-							match_incs['firstBloodAssists'] = 1 if participant['stats'].get('firstBloodAssist', False) else 0
-							match_incs['firstTowerKills'] = 1 if participant['stats'].get('firstTowerKill', False) else 0
-							match_incs['firstTowerAssists'] = 1 if participant['stats'].get('firstTowerAssist', False) else 0
-							match_incs['firstInhibitorKills'] = 1 if participant['stats'].get('firstInhibitorKill', False) else 0
-							match_incs['winner'] = 1 if team['win'] == 'Win' else 0
+							match_incs['wins'] = 1 if team['win'] == 'Win' else 0
 
-					self.mongo.save_match_agg(match_doc, match_incs)
+					full_incs = dict(match_incs.items() + team_incs.items() + totals_incs.items())
+
+					self.mongo.save_match_agg(match_doc, full_incs)
 
 			except Exception as ex:
 				raise

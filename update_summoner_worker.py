@@ -14,7 +14,7 @@ def run(key, crawl=False):
 	redis = RedisHelper()
 	queue = QueueHelper()
 
-	#queue.put_player(accountId=406869, summonerId=411969, region='las')
+	queue.put_player(accountId=32766, summonerId=5908, region='na')
 
 	for summoner in queue.summoners_list.consume():
 		accountid, summonerid, region = summoner.split(':')
