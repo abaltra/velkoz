@@ -2,6 +2,7 @@ import requests as r
 import json
 import logging
 import time
+import datetime
 from redisHelper import RedisHelper
 from mongoHelper import MongoHelper
 from queueHelper import QueueHelper
@@ -28,6 +29,10 @@ TRACKED_QUEUE_IDS = {
 	4: "RANKED_SOLO_5x5", 6: "RANKED_PREMADE_5x5", 42: "RANKED_TEAM_5x5",
 	410: "TEAM_BUILDER_DRAFT_RANKED_5x5", 420: "TEAM_BUILDER_RANKED_SOLO",
 	440: "RANKED_FLEX_SR", 9: "RANKED_FLEX_TT", 41: "RANKED_TEAM_3x3"
+}
+
+MARKSMEN_IDS = {
+	22: 'ASHE', 42: 'CORKI', 119: 'DRAVEN', 81: 'EZREAL', 104: 'GRAVES', 126: 'JAYCE', 202: 'JHIN', 222: 'JINX', 429: 'KALISTA', 85: 'KENNEN', 203: 'KINDRED', 96: 'KOGMAW', 236: 'LUCIAN', 21: 'MISSFORTUNE', 133: 'QUINN', 15: 'SIVIR', 17: 'TEEMO', 18: 'TRISTANA', 29: 'TWITCH', 6: 'URGOT', 110: 'VARUS', 67: 'VAYNE'
 }
 
 REGIONS_TO_ENDPOINTS_MAP = {
@@ -167,10 +172,14 @@ class Riot:
 					totals_incs = dict()
 					team_incs = dict()
 					match_incs = dict()
+					match_doc['day'] = datetime.datetime.fromtimestamp(m['gameCreation'] / 1000).strftime('%y:%m:%d')
 					match_doc['region'] = region
 					match_doc['queueId'] = match['queue']
 					match_doc['lane'] = match['lane']
-					match_doc['role'] = match['role']
+					if match['lane'] == 'BOTTOM' and match['role'] == 'DUO':
+						match_doc['role'] = 'DUO_CARRY' if MARKSMEN_IDS.get(match['champion'], None) is None else 'DUO_SUPPORT'
+					else:
+						match_doc['role'] = match['role']
 					match_doc['championId'] = match['champion']
 					match_doc['season'] = match['season']
 
@@ -229,6 +238,7 @@ class Riot:
 					full_incs = dict(match_incs.items() + team_incs.items() + totals_incs.items())
 
 					self.mongo.save_match_agg(match_doc, full_incs)
+					tmp = match_doc.pop('championId', None)
 
 			except Exception as ex:
 				raise
