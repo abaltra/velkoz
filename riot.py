@@ -32,7 +32,7 @@ TRACKED_QUEUE_IDS = {
 }
 
 MARKSMEN_IDS = {
-	22: 'ASHE', 42: 'CORKI', 119: 'DRAVEN', 81: 'EZREAL', 104: 'GRAVES', 126: 'JAYCE', 202: 'JHIN', 222: 'JINX', 429: 'KALISTA', 85: 'KENNEN', 203: 'KINDRED', 96: 'KOGMAW', 236: 'LUCIAN', 21: 'MISSFORTUNE', 133: 'QUINN', 15: 'SIVIR', 17: 'TEEMO', 18: 'TRISTANA', 29: 'TWITCH', 6: 'URGOT', 110: 'VARUS', 67: 'VAYNE'
+	22: 'ASHE', 268: 'AZIR', 42: 'CORKI', 119: 'DRAVEN', 81: 'EZREAL', 104: 'GRAVES', 126: 'JAYCE', 202: 'JHIN', 222: 'JINX', 429: 'KALISTA', 85: 'KENNEN', 203: 'KINDRED', 96: 'KOGMAW', 236: 'LUCIAN', 21: 'MISSFORTUNE', 133: 'QUINN', 15: 'SIVIR', 17: 'TEEMO', 18: 'TRISTANA', 29: 'TWITCH', 6: 'URGOT', 110: 'VARUS', 67: 'VAYNE', 51: 'CAITLYN'
 }
 
 REGIONS_TO_ENDPOINTS_MAP = {
@@ -222,7 +222,7 @@ class Riot:
 						#now add them to the match total, regardless of team
 						for stat in stats_to_aggregate:
 							pstats = _participant['stats']
-							totals_incs[stat + 'ByMatch'] = pstats.get(stat, 0) if totals_incs.get(stat + 'ByMatch', None) is None else totals_incs.get(stat + 'ByMatch') + pstats.get(stat, 0)
+							totals_incs[stat + 'InMatch'] = pstats.get(stat, 0) if totals_incs.get(stat + 'InMatch', None) is None else totals_incs.get(stat + 'InMatch') + pstats.get(stat, 0)
 
 					match_doc['summonerId'] = participant_identity['player']['summonerId']
 					match_doc['accountId'] = participant_identity['player']['currentAccountId']
