@@ -30,7 +30,7 @@ class QueueRedisHelper(RedisHelper):
 	'''
 	def __init__(self, redisCreds=None, key='defaultkey'):
 		self.key = key
-		super(RiotRedisHelper, self).__init__(redisCreds)
+		super(QueueRedisHelper, self).__init__(redisCreds)
 
 	def put(self, *values):
 		self.redis.rpush(self.key, *values)
