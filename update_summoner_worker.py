@@ -1,5 +1,4 @@
 from riot import Riot
-from redisHelper import RedisHelper
 from queueHelper import QueueHelper
 from errors import RiotRateError, RiotInvalidKeyError, RiotDataNotFoundError, RiotDataUnavailable
 import argparse
@@ -11,7 +10,6 @@ import logging
 def run(key, crawl=False):
 	logging.basicConfig(format='%(asctime)s %(message)s', datefmt='%m/%d/%Y %I:%M:%S %p', level=logging.DEBUG)
 	riotHelper = Riot(key, crawl=crawl)
-	redis = RedisHelper()
 	queue = QueueHelper()
 
 	queue.put_player(accountId=200621737, summonerId=3333908, region='las')

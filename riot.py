@@ -3,7 +3,7 @@ import json
 import logging
 import time
 import datetime
-from redisHelper import RedisHelper
+from redisHelper import RiotRedisHelper
 from mongoHelper import MongoHelper
 from queueHelper import QueueHelper
 from errors import RiotRateError, RiotInvalidKeyError, RiotDataNotFoundError, RiotDataUnavailable
@@ -52,7 +52,7 @@ REGIONS_TO_ENDPOINTS_MAP = {
 class Riot:
 	def __init__(self, api_key, redis_creds=None, crawl=False):
 		self.key = api_key
-		self.redis = RedisHelper(redis_creds=redis_creds)
+		self.redis = RiotRedisHelper(redisCreds=redis_creds)
 		self.mongo = MongoHelper()
 		self.queue = QueueHelper()
 		self.crawl = crawl

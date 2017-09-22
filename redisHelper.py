@@ -3,8 +3,13 @@ import time
 import sys
 import logging
 
-class RedisHelper:
+class RedisHelper(object):
+	'''
+	We'll be using Redis for different things, so it's better to wrap the bootstrap in a base class and just inherit as needed
+	'''
 	def __init__(self, redis_creds=None):
+		self.test = 'las pelotas'
+		self.redis = None
 		try:
 			if redis_creds:
 				self.redis = redis.StrictRedis(
@@ -18,6 +23,46 @@ class RedisHelper:
 		except:
 			logging.error('Could not connect to Redis')
 			sys.exit(-2)
+
+class QueueRedisHelper(RedisHelper):
+	'''
+	All queue related Redis interactions should be coded here
+	'''
+	def __init__(self, redisCreds=None, key='defaultkey'):
+		self.key = key
+		super(RiotRedisHelper, self).__init__(redisCreds)
+
+	def put(self, *values):
+		self.redis.rpush(self.key, *values)
+
+	def consume(self):
+		try:
+		    while True:
+		        msg = self.get(self.key)
+		        if msg is None:
+		            break
+		        yield msg
+		except KeyboardInterrupt:
+		    print; return
+
+	def get(self, block=False, timeout=None):
+		if block:
+		    if timeout is None:
+		        timeout = 0
+		    msg = self.redis.blpop(self.key, timeout=timeout)
+		    if msg is not None:
+		        msg = msg[1]
+		else:
+		    msg = self.redis.lpop(self.key)
+
+		return msg
+
+class RiotRedisHelper(RedisHelper):
+	'''
+	All Riot-related redis interactions should be here
+	'''
+	def __init__(self, redisCreds=None):
+		super(RiotRedisHelper, self).__init__(redisCreds)
 
 	def set_property_last_seen(self, prop, ttl):
 		p = self.redis.pipeline()
@@ -45,10 +90,9 @@ class RedisHelper:
 
 	def player_recent_matches_updated(self, accountId, region, ttl=60): #default to a minute for now
 		self.set_property_last_seen('recentmatchesflags:%s:%s' % (accountId, region), ttl)
-		
+
 	def get_player_last_seen_match(self, accountId, region):
 		return self.redis.get('lastseenmatches:%s:%s' % (accountId, region))
 
 	def set_player_last_seen_match(self, accountId, region, matchid):
 		self.redis.set('lastseenmatches:%s:%s' % (accountId, region), matchid)
-
