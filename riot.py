@@ -1,4 +1,3 @@
-import requests as r
 from aiohttp import ClientSession
 import asyncio
 import json
@@ -10,6 +9,7 @@ from mongoHelper import MongoHelper
 from queueHelper import QueueHelper
 from errors import RiotRateError, RiotInvalidKeyError, RiotDataNotFoundError, RiotDataUnavailable
 
+#All queues
 QUEUE_ID_TO_VALUE_MAP = {
 	0: "CUSTOM", 8: "NORMAL_3x3", 2: "NORMAL_5x5_BLIND", 14: "NORMAL_5x5_DRAFT",
 	4: "RANKED_SOLO_5x5", 6: "RANKED_PREMADE_5x5", 42: "RANKED_TEAM_5x5",
@@ -26,6 +26,7 @@ QUEUE_ID_TO_VALUE_MAP = {
 	430: "TB_BLIND_SUMMONERS_RIFT_5x5", 600: "ASSASSINATE_5x5", 610: "DARKSTAR_3x3"
 }
 
+#Queues we care about
 TRACKED_QUEUE_IDS = {
 	8: "NORMAL_3x3", 2: "NORMAL_5x5_BLIND", 14: "NORMAL_5x5_DRAFT",
 	4: "RANKED_SOLO_5x5", 6: "RANKED_PREMADE_5x5", 42: "RANKED_TEAM_5x5",
@@ -33,6 +34,7 @@ TRACKED_QUEUE_IDS = {
 	440: "RANKED_FLEX_SR", 9: "RANKED_FLEX_TT", 41: "RANKED_TEAM_3x3"
 }
 
+#Riot has BOT, DUO_BOT and some other flavors. These champs are flagged as "marksmen" in their ID, so in case of finding a bot lane champion, check against this list to know if support or ADC
 MARKSMEN_IDS = {
 	22: 'ASHE', 268: 'AZIR', 42: 'CORKI', 119: 'DRAVEN', 81: 'EZREAL', 104: 'GRAVES', 126: 'JAYCE', 202: 'JHIN', 222: 'JINX', 429: 'KALISTA', 85: 'KENNEN', 203: 'KINDRED', 96: 'KOGMAW', 236: 'LUCIAN', 21: 'MISSFORTUNE', 133: 'QUINN', 15: 'SIVIR', 17: 'TEEMO', 18: 'TRISTANA', 29: 'TWITCH', 6: 'URGOT', 110: 'VARUS', 67: 'VAYNE', 51: 'CAITLYN'
 }
@@ -59,19 +61,16 @@ class Riot:
 		self.queue = QueueHelper()
 		self.crawl = crawl
 
-	def get_match(self, gameId, region):
-		region = REGIONS_TO_ENDPOINTS_MAP[region.lower()]
-		m = r.get('https://%s.api.riotgames.com/lol/match/v3/matches/%s?api_key=%s' % (region, gameId, self.key))
-
-		if m.status_code == 200:
-			return m.json()
-
 	def throttle(self, headers):
+		'''
+			Throttle the calls if required. Riot enforces 2 limits per call, an API-wide one and a per-method one. We check all of them and sleep if we are close to offending one.
+		'''
 		current_m_limit = headers.get('X-Method-Rate-Limit')
 		current_m_count = headers.get('X-Method-Rate-Limit-Count')
 		current_a_limit = headers.get('X-App-Rate-Limit')
 		current_a_count = headers.get('X-App-Rate-Limit-Count')
 
+		#Riot has API wide limits and per-method limits. Check all of them.
 		if current_m_limit is not None:
 			current_m_limit = float(current_m_limit.split(',')[0].split(':')[0])
 
@@ -85,14 +84,17 @@ class Riot:
 			current_a_count = float(current_a_count.split(',')[0].split(':')[0])
 
 		#if any of our counts are withing 15% of the it's rate limit, wait
-		#TODO: tweak this variables to reach balance. It should be based on number of workers and size of limits
+		#TODO: tweak this variables to reach balance. It should be based on number of workers and size of limits. Also, experiment with using a redis check mechanism; if horizontal scalability is easy and cheap enough, we could ping redis a lot of times and it shouldn't be a problem. (or any other key-value storage service with high throughput.)
 		if current_a_count is not None and current_a_limit is not None and current_m_count is not None and current_m_limit is not None:
 			if (current_a_count / current_a_limit) >= 0.75 or (current_m_count / current_m_limit) >= 0.75:
 				logging.info('Rate limit threshold reached. MethodLimit: %s, MethodCount: %s. AppLimit: %s, AppCount: %s. Sleeping for 5 seconds' % (current_m_limit, current_m_count, current_a_limit, current_a_count))
 				time.sleep(5)
 
-
 	async def call_riot(self, url):
+		'''
+			Centralized communications with Riot. All new methods calling new endpoints should wrap this.
+			By default, all errors are bubbled up, if specific handling is required, it should be added here.
+		'''
 		async with ClientSession() as session:
 			async with session.get(url) as response:
 				status_code = response.status
@@ -102,6 +104,7 @@ class Riot:
 				if status_code == 200:
 					return json.loads(d.decode())
 
+				#Any low-level handling of riot errors should be added here, right now it just bubbles up the appropriate exception
 				elif status_code == 409:
 					raise RiotRateError('Call to %s went over rate limit' % url)
 
@@ -114,6 +117,10 @@ class Riot:
 				else:
 					raise RiotDataUnavailable('Riot API unavailable for %s' % url)
 
+	'''
+	 ---- RIOT CALL WRAPPERS ----
+	 All these methods are super simple wrappers over the centralized call_riot method. All new calls to Riot API should follow the same structure
+	'''
 	async def get_summoner_by_account(self, accountId, region):
 		logging.info('Getting summoner info for accountId: %s in %s' % (accountId, region))
 		try:
@@ -163,9 +170,15 @@ class Riot:
 			return await self.call_riot('https://%s.api.riotgames.com/lol/match/v3/matches/%s?api_key=%s' % (region, matchId, self.key))
 		except Exception as ex:
 			raise
-
+	'''
+	---- END RIOT CALL WRAPPERS ----
+	'''
 
 	async def retrieve_and_parse_match(self, summonerId, matches, region):
+		'''
+			Example of stats being calculated. These code creates aggregates per player, per champ and per lane for each day. These could be used to track player participation with different champs on different aspects of the game (damage, vision, tankiness, etc) and follow up on progress.
+			Different aggregates can be done using this as base.
+		'''
 		stats_to_aggregate = ['kills', 'deaths', 'assists', 'totalDamageDealt', 'magicDamageDealt', 'physicalDamageDealt', 'trueDamageDealt', 'totalDamageDealtToChampions', 'magicDamageDealtToChampions', 'physicalDamageDealtToChampions', 'trueDamageDealtToChampions', 'timeCCingOthers', 'totalDamageTaken', 'magicalDamageTaken', 'physicalDamageTaken', 'trueDamageTaken', 'totalHeal', 'totalUnitsHealed', 'damageSelfMitigated', 'damageDealtToObjectives', 'damageDealtToTurrets', 'goldEarned', 'goldSpent', 'turretKills', 'inhibitorKills', 'totalMinionsKilled', 'neutralMinionsKilled', 'neutralMinionsKilledTeamJungle', 'neutralMinionsKilledEnemyJungle', 'totalTimeCrowdControlDealt', 'visionWardsBoughtInGame', 'sightWardsBoughtInGame', 'wardsPlaced', 'wardsKilled']
 		for match in matches:
 			try:
@@ -249,6 +262,9 @@ class Riot:
 				raise
 
 	async def get_recent_matches(self, accountId=None, summonerId=None, region=None):
+		'''
+			Get player's recent matches and parse/save/aggregate as necessary.
+		'''
 		logging.info('Getting recent matches for %s:%s:%s' % (accountId, summonerId, region))
 
 		if accountId is None or region is None:
@@ -278,8 +294,11 @@ class Riot:
 				raise
 
 
-
 	async def update_player_profile(self, accountId='', summonerId='', region=None):
+		'''
+			Keep the player profile we have in the DB up to date. It uses redis flags to minimize the calls to Riot. It defaults to 1 min until the profile has to be updated, but it can be tweaked using params.
+			The profile, leagues and matches all use different flags to know if they should be updates.
+		'''
 		logging.info('Updating player profile for %s:%s:%s' % ( accountId, summonerId, region ))
 		profile = None
 		isNew = False
