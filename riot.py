@@ -235,7 +235,7 @@ class Riot:
 							match_incs['blueSideMatches'] = 1 if team['teamId'] == 200 else 0
 							match_incs['wins'] = 1 if team['win'] == 'Win' else 0
 
-					full_incs = dict(match_incs.items() + team_incs.items() + totals_incs.items())
+					full_incs = dict(match_incs.items() | team_incs.items() | totals_incs.items())
 
 					self.mongo.save_match_agg(match_doc, full_incs)
 					tmp = match_doc.pop('championId', None)

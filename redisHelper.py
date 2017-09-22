@@ -55,6 +55,8 @@ class QueueRedisHelper(RedisHelper):
 		else:
 		    msg = self.redis.lpop(self.key)
 
+		if msg is not None:
+			msg = msg.decode()
 		return msg
 
 class RiotRedisHelper(RedisHelper):
