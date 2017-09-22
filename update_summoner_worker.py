@@ -6,8 +6,9 @@ import time
 import sys
 import traceback
 import logging
+import asyncio
 
-def run(key, crawl=False):
+async def run(key, crawl=False):
 	logging.basicConfig(format='%(asctime)s %(message)s', datefmt='%m/%d/%Y %I:%M:%S %p', level=logging.DEBUG)
 	riotHelper = Riot(key, crawl=crawl)
 	queue = QueueHelper()
@@ -20,11 +21,11 @@ def run(key, crawl=False):
 		try:
 			# update profile data. If there's only account id, or only summoner id, then it's a new player. Return the missing data if that's the case
 			#  - use leagues endpoint to get more players
-			accountId, summonerId = riotHelper.update_player_profile(accountId=accountid, summonerId=summonerid, region=region)
+			accountId, summonerId = await riotHelper.update_player_profile(accountId=accountid, summonerId=summonerid, region=region)
 
 			# get recent matches
 			#  - use recent matches to get more players
-			riotHelper.get_recent_matches(accountId=accountId, summonerId=summonerId, region=region)
+			await riotHelper.get_recent_matches(accountId=accountId, summonerId=summonerId, region=region)
 			queue.put_player(accountId=accountId, summonerId=summonerId, region=region)
 		except (RiotRateError, RiotInvalidKeyError, RiotDataNotFoundError, RiotDataUnavailable) as ex:
 			logging.warning("Could not update %s because %s. Skipping and adding to back of the queue" % (summoner, ex.message))
@@ -38,4 +39,9 @@ if __name__ == "__main__":
 	parser.add_argument('key', help="Riot's API key")
 	parser.add_argument('-c', '--crawl', action="store_true", help="True if we should crawl the matchlist for new players (defaults to False)", default=False)
 	args = parser.parse_args()
-	run(args.key, args.crawl)
+	loop = asyncio.get_event_loop()
+	try:
+		loop.run_until_complete(run(args.key, args.crawl))
+	except KeyboardInterrupt:
+		loop.stop()
+		sys.exit(0)

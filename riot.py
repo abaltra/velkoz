@@ -1,4 +1,6 @@
 import requests as r
+from aiohttp import ClientSession
+import asyncio
 import json
 import logging
 import time
@@ -90,82 +92,85 @@ class Riot:
 				time.sleep(5)
 
 
-	def call_riot(self, url):
-		d = r.get(url)
-		self.throttle(d.headers)
+	async def call_riot(self, url):
+		async with ClientSession() as session:
+			async with session.get(url) as response:
+				status_code = response.status
+				d = await response.read()
+				self.throttle(response.headers)
 
-		if d.status_code == 200:
-			return d.json()
+				if status_code == 200:
+					return json.loads(d.decode())
 
-		elif d.status_code == 409:
-			raise RiotRateError('Call to %s went over rate limit' % url)
+				elif status_code == 409:
+					raise RiotRateError('Call to %s went over rate limit' % url)
 
-		elif d.status_code == 403:
-			raise RiotInvalidKeyError('Key %s is no longer valid' % self.key)
+				elif status_code == 403:
+					raise RiotInvalidKeyError('Key %s is no longer valid' % self.key)
 
-		elif d.status_code == 404:
-			raise RiotDataNotFoundError('Call to %s 404d' % url)
+				elif status_code == 404:
+					raise RiotDataNotFoundError('Call to %s 404d' % url)
 
-		else:
-			raise RiotDataUnavailable('Riot API unavailable for %s' % url)
+				else:
+					raise RiotDataUnavailable('Riot API unavailable for %s' % url)
 
-	def get_summoner_by_account(self, accountId, region):
+	async def get_summoner_by_account(self, accountId, region):
 		logging.info('Getting summoner info for accountId: %s in %s' % (accountId, region))
 		try:
 			region = REGIONS_TO_ENDPOINTS_MAP[region.lower()]
-			return self.call_riot('https://%s.api.riotgames.com/lol/summoner/v3/summoners/by-account/%s?api_key=%s' % (region, accountId, self.key))
+			return await self.call_riot('https://%s.api.riotgames.com/lol/summoner/v3/summoners/by-account/%s?api_key=%s' % (region, accountId, self.key))
 		except Exception as ex:
 			raise
 
-	def get_summoner_by_summonerid(self, summonerId, region):
+	async def get_summoner_by_summonerid(self, summonerId, region):
 		logging.info('Getting summoner info for summonerId: %s in %s' % (summonerId, region))
 		try:
 			region = REGIONS_TO_ENDPOINTS_MAP[region.lower()]
-			return self.call_riot('https://%s.api.riotgames.com/lol/summoner/v3/summoners/%s?api_key=%s' % (region, summonerId, self.key))
+			return await self.call_riot('https://%s.api.riotgames.com/lol/summoner/v3/summoners/%s?api_key=%s' % (region, summonerId, self.key))
 		except Exception as ex:
 			raise
 
-	def get_summoner(self, accountId=None, summonerId=None, region=None):
+	async def get_summoner(self, accountId=None, summonerId=None, region=None):
 		if accountId is None and summonerId is None:
 			raise ValueError('accountId and summonerId can\' both be NoneType')
 		try:
 			if summonerId is None:
-				return self.get_summoner_by_account(accountId=accountId, region=region)
+				return await self.get_summoner_by_account(accountId=accountId, region=region)
 			else:
-				return self.get_summoner_by_summonerid(summonerId=summonerId, region=region)
+				return await self.get_summoner_by_summonerid(summonerId=summonerId, region=region)
 		except Exception as ex:
 			raise
 
-	def get_league(self, summonerId, region):
+	async def get_league(self, summonerId, region):
 		logging.info('Getting summoner info for summonerId: %s in %s' % (summonerId, region))
 		try:
 			region = REGIONS_TO_ENDPOINTS_MAP[region.lower()]
-			return self.call_riot('https://%s.api.riotgames.com/lol/league/v3/leagues/by-summoner/%s?api_key=%s' % (region, summonerId, self.key))
+			return await self.call_riot('https://%s.api.riotgames.com/lol/league/v3/leagues/by-summoner/%s?api_key=%s' % (region, summonerId, self.key))
 		except Exception as ex:
 			raise
 
-	def get_recent_matches_by_account(self, accountId, region):
+	async def get_recent_matches_by_account(self, accountId, region):
 		try:
 			region = REGIONS_TO_ENDPOINTS_MAP[region.lower()]
-			return self.call_riot('https://%s.api.riotgames.com/lol/match/v3/matchlists/by-account/%s/recent?api_key=%s' % (region, accountId, self.key))
+			return await self.call_riot('https://%s.api.riotgames.com/lol/match/v3/matchlists/by-account/%s/recent?api_key=%s' % (region, accountId, self.key))
 		except Exception as ex:
 			raise
 
-	def get_match(self, matchId, region):
+	async def get_match(self, matchId, region):
 		logging.info('Getting match %s from %s' % (matchId, region))
 		try:
 			region = REGIONS_TO_ENDPOINTS_MAP[region.lower()]
-			return self.call_riot('https://%s.api.riotgames.com/lol/match/v3/matches/%s?api_key=%s' % (region, matchId, self.key))
+			return await self.call_riot('https://%s.api.riotgames.com/lol/match/v3/matches/%s?api_key=%s' % (region, matchId, self.key))
 		except Exception as ex:
 			raise
 
 
-	def retrieve_and_parse_match(self, summonerId, matches, region):
+	async def retrieve_and_parse_match(self, summonerId, matches, region):
 		stats_to_aggregate = ['kills', 'deaths', 'assists', 'totalDamageDealt', 'magicDamageDealt', 'physicalDamageDealt', 'trueDamageDealt', 'totalDamageDealtToChampions', 'magicDamageDealtToChampions', 'physicalDamageDealtToChampions', 'trueDamageDealtToChampions', 'timeCCingOthers', 'totalDamageTaken', 'magicalDamageTaken', 'physicalDamageTaken', 'trueDamageTaken', 'totalHeal', 'totalUnitsHealed', 'damageSelfMitigated', 'damageDealtToObjectives', 'damageDealtToTurrets', 'goldEarned', 'goldSpent', 'turretKills', 'inhibitorKills', 'totalMinionsKilled', 'neutralMinionsKilled', 'neutralMinionsKilledTeamJungle', 'neutralMinionsKilledEnemyJungle', 'totalTimeCrowdControlDealt', 'visionWardsBoughtInGame', 'sightWardsBoughtInGame', 'wardsPlaced', 'wardsKilled']
 		for match in matches:
 			try:
 				if match['queue'] in QUEUE_ID_TO_VALUE_MAP and match['queue'] in TRACKED_QUEUE_IDS:
-					m = self.get_match(match['gameId'], region)
+					m = await self.get_match(match['gameId'], region)
 					participant_identity = None
 					participant = None
 					match_doc = dict()
@@ -243,7 +248,7 @@ class Riot:
 			except Exception as ex:
 				raise
 
-	def get_recent_matches(self, accountId=None, summonerId=None, region=None):
+	async def get_recent_matches(self, accountId=None, summonerId=None, region=None):
 		logging.info('Getting recent matches for %s:%s:%s' % (accountId, summonerId, region))
 
 		if accountId is None or region is None:
@@ -251,7 +256,7 @@ class Riot:
 
 		if self.redis.should_get_player_matches(accountId, region):
 			try:
-				matches = self.get_recent_matches_by_account(accountId, region)
+				matches = await self.get_recent_matches_by_account(accountId, region)
 				last_seen_match = self.redis.get_player_last_seen_match(accountId, region)
 
 				new_matches = []
@@ -265,7 +270,7 @@ class Riot:
 					#we have real new matches
 					self.mongo.save_new_matches(accountId, region, new_matches)
 					self.redis.set_player_last_seen_match(accountId, region, new_matches[0]['gameId'])
-					self.retrieve_and_parse_match(summonerId, new_matches, region)
+					await self.retrieve_and_parse_match(summonerId, new_matches, region)
 
 				else:
 					logging.info('No new matches for %s:%s:%s' % (accountId, summonerId, region))
@@ -274,7 +279,7 @@ class Riot:
 
 
 
-	def update_player_profile(self, accountId='', summonerId='', region=None):
+	async def update_player_profile(self, accountId='', summonerId='', region=None):
 		logging.info('Updating player profile for %s:%s:%s' % ( accountId, summonerId, region ))
 		profile = None
 		isNew = False
@@ -289,7 +294,7 @@ class Riot:
 				# new player, get from riot
 				isNew = True
 				try:
-					profile = self.get_summoner(summonerId=summonerId, region=region)
+					profile = await self.get_summoner(summonerId=summonerId, region=region)
 				except Exception as ex:
 					raise
 				accountId = profile['accountId']
@@ -300,7 +305,7 @@ class Riot:
 			if profile is None:
 				isNew = True
 				try:
-					profile = self.get_summoner(accountId=accountId, region=region)
+					profile = await self.get_summoner(accountId=accountId, region=region)
 				except Exception as ex:
 					raise
 				summonerId = profile['id']
@@ -309,15 +314,16 @@ class Riot:
 		if profile is not None or self.redis.should_get_player_profile(accountId, summonerId, region):
 			if profile is None:
 				try:
-					profile = self.get_summoner(accountId=accountId, region=region)
+					profile = await self.get_summoner(accountId=accountId, region=region)
 				except Exception as ex:
 					raise
 			self.redis.player_profile_updated(accountId, summonerId, region)
 			self.mongo.update_profile(profile=profile, region=region)
 
+
 		if self.redis.should_get_player_league(summonerId, region):
 			try:
-				leagues = self.get_league(summonerId, region)
+				leagues = await self.get_league(summonerId, region)
 			except Exception as ex:
 				raise
 			for league in leagues:
@@ -327,5 +333,6 @@ class Riot:
 					elif player['playerOrTeamId'] == summonerId:
 						meta = { 'tier': league['tier'], 'queue': league['queue'], 'name': league['name'] }
 						self.mongo.update_leagues(summonerId=summonerId, league=player, meta=meta, region=region)
+
 
 		return profile['accountId'], profile['id']

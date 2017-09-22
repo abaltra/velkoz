@@ -79,6 +79,7 @@ class RiotRedisHelper(RedisHelper):
 		return self.should_get_property('profileflags:%s:%s:%s' % (accountId, summonerId, region))
 
 	def player_profile_updated(self, accountId, summonerId, region, ttl=60): #default to a minute for now
+		print('player profile updated')
 		self.set_property_last_seen('profileflags:%s:%s:%s' % (accountId, summonerId, region), ttl)
 
 	def should_get_player_league(self, summonerId, region):
