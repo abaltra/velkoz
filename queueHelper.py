@@ -1,10 +1,10 @@
-from hotqueue import HotQueue
+from redisHelper import QueueRedisHelper
 import logging
 
 class QueueHelper:
-	def __init__(self, host='localhost', port=6379, db=0):
-		self.summoners_list = HotQueue('summonerslist', host=host, port=port, db=db)
-		self.operations_list = HotQueue('operationslsit', host=host, port=port, db=db)
+	def __init__(self, redisCreds=None):
+		self.summoners_list = QueueRedisHelper(redisCreds=redisCreds, key='summonerslist')
+		self.operations_list = QueueRedisHelper(redisCreds=redisCreds, key='operationslsit')
 
 	def put_player(self, accountId=None, summonerId=None, region=None):
 		if accountId is None and summonerId is None:

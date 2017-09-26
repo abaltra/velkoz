@@ -6,10 +6,10 @@ import sys
 import logging
 
 class MongoHelper:
-	def __init__(self, cstring='mongodb://localhost:27017'):
+	def __init__(self, cstring='mongodb://localhost:27017', dbname='loldata'):
 		try:
 			db = MongoClient(cstring)
-			self.db = db['loldata']
+			self.db = db[dbname]
 		except:
 			logging.error('Could not connect to mongo')
 			sys.exit(-1)
