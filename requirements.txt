@@ -19,5 +19,5 @@ requests==2.18.4
 setproctitle==1.1.10
 six==1.11.0
 team==1.0
-urllib3==1.22
+urllib3==1.24.2
 yarl==0.12.0
