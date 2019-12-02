@@ -99,3 +99,11 @@ ENV/
 
 # mypy
 .mypy_cache/
+
+# custom
+.secrets
+*.tfvars.tf
+secrets.tf
+export_secrets.sh
+.terraform
+node_modules
