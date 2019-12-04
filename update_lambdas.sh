@@ -20,7 +20,7 @@ do
     fi
 
     cd src
-    npm install
+    npm install --production
 
     IFS_BACK=$IFS
     IFS="/"

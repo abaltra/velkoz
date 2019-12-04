@@ -11,6 +11,8 @@ resource "aws_lambda_function" "lol_gamelist" {
   environment {
       variables = {
           RIOT_API_KEY = var.lol_api_key
+          MONGO_CONNECTION_STRING = var.mongo_connection_string
+          NEW_GAME_FOUND_TOPIC_ARN = aws_sns_topic.new_game_found.arn
       }
   }
 }

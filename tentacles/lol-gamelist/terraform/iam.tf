@@ -33,6 +33,13 @@ resource "aws_iam_role_policy" "lol_gamelist_worker_policy" {
                 "logs:PutLogEvents"
             ],
             "Resource": "*"
+        },
+        {
+          "Effect": "Allow",
+          "Action": [
+            "SNS:Publish"
+          ],
+          "Resource": "${aws_sns_topic.new_game_found.arn}"
         }
     ]
 }
