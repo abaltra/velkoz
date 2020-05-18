@@ -2,6 +2,7 @@
 
 TENTACLES="tentacles/*"
 ROOT=$(pwd)
+GAME_PREFIX=$1
 
 for t in $TENTACLES
 do
@@ -27,9 +28,9 @@ do
     read -ra PARTS <<< "$t"
     IFS=$IFS_BACK
     TENTACLE_NAME=${PARTS[1]}
-    rm "../terraform/$TENTACLE_NAME-lambda.zip"
-    zip -r "$TENTACLE_NAME-lambda.zip" *
-    mv "$TENTACLE_NAME-lambda.zip" ../terraform/
+    rm "../terraform/$GAME_PREFIX-$TENTACLE_NAME-lambda.zip"
+    zip -r "$GAME_PREFIX=$TENTACLE_NAME-lambda.zip" *
+    mv "$GAME_PREFIX-$TENTACLE_NAME-lambda.zip" ../terraform/
 
-    printf "Created terraform/$TENTACLE_NAME-lambda.zip\n" 
+    printf "Created terraform/$GAME_PREFIX-$TENTACLE_NAME-lambda.zip\n" 
 done
