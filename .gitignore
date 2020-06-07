@@ -107,3 +107,4 @@ secrets.tf
 export_secrets.sh
 .terraform
 node_modules
+.vscode
