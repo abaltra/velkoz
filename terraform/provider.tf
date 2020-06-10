@@ -3,9 +3,9 @@ provider "aws" {
   profile = "abaltra"
 }
 
-# provider "mongodbatlas" {
-#     version = "~> 0.3"
-# }
+provider "mongodbatlas" {
+    version = "~> 0.4"
+}
 
 variable "application_name" {
     default = "velkoz-core"
@@ -13,8 +13,4 @@ variable "application_name" {
 
 variable "region" {
     default = "us-east-1"
-}
-
-variable "aws_account_id" {
-    default = "249914645072"
 }

@@ -1,11 +1,3 @@
-resource "aws_lambda_event_source_mapping" "dynamo_update_roll_event" { 
-  event_source_arn = aws_dynamodb_table.player_update_roll.stream_arn
-  starting_position = "LATEST"
-  function_name = aws_lambda_function.update_roll_handler.function_name
-
-  depends_on = [aws_iam_role_policy.iam_policy_lambda]
-}
-
 resource "archive_file" "update_roller_zip" { 
   type = "zip"
   source_dir = "${path.cwd}/../lambdas/update-roller"
@@ -20,15 +12,19 @@ resource "aws_lambda_function" "update_roll_handler" {
     source_code_hash = archive_file.update_roller_zip.output_base64sha256
     runtime = "nodejs12.x"
     role = aws_iam_role.iam_for_lambda.arn
+    vpc_config {
+      security_group_ids = [aws_security_group.open.id]
+      subnet_ids = [aws_subnet.open_subnet.id]
+    }
     environment {
       variables = {
-        USER_GAMELIST_UPDATE_REQUESTED_TOPIC = aws_sns_topic.player_gamelist_update_requested.arn
+        RIOT_API_KEY = "TBD"
       }
     }
     
 }
 
-resource "aws_cloudwatch_log_group" "example" {
+resource "aws_cloudwatch_log_group" "valkoz_logs" {
   name              = "/aws/lambda/${aws_lambda_function.update_roll_handler.function_name}"
   retention_in_days = 14
 }
@@ -40,14 +36,6 @@ resource "aws_iam_role_policy" "iam_policy_lambda" {
 {
   "Version": "2012-10-17",
   "Statement": [
-    {
-        "Sid": "AllowDynamoActions",
-        "Action": [
-            "dynamodb:*"
-        ],
-        "Effect": "Allow",
-        "Resource": "${aws_dynamodb_table.player_update_roll.arn}/*"
-    },
     {       
         "Sid": "AllowLambdaFunctionInvocation",
         "Effect": "Allow",
@@ -68,10 +56,17 @@ resource "aws_iam_role_policy" "iam_policy_lambda" {
       "Effect": "Allow"
     },
     {
-      "Sid": "AllowSendingSNSMessages",
+      "Sid": "AllowManagementOfNetworkResources",
       "Effect": "Allow",
-      "Action": ["sns:Publish"],
-      "Resource": [ "${aws_sns_topic.player_gamelist_update_requested.arn}" ]
+      "Action": [
+        "ec2:DescribeSecurityGroups",
+        "ec2:DescribeSubnets",
+        "ec2:DescribeVpcs",
+        "ec2:CreateNetworkInterface",
+        "ec2:DescribeNetworkInterfaces",
+        "ec2:DeleteNetworkInterface"
+      ],
+      "Resource": [ "*" ]
     }
   ]
 }
@@ -96,4 +91,12 @@ resource "aws_iam_role" "iam_for_lambda" {
   ]
 }
 EOF
+}
+
+resource "aws_lambda_permission" "withSns" {
+  statement_id = "AllowExecutionFromSNS"
+  action = "lambda:InvokeFunction"
+  function_name = aws_lambda_function.update_roll_handler.arn
+  principal = "sns.amazonaws.com"
+  source_arn = aws_sns_topic.gamelist_update_requested.arn
 }

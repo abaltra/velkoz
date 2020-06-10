@@ -1,29 +1,10 @@
-const AWS = require('aws-sdk')
 exports.handler = async function(event, context) {
-    const sns = new AWS.SNS()
-    for (let i = 0; i < event.Records.length; i++) 
-    {
-        const record = event.Records[i]
-        const keys = record.dynamodb.OldImage
-        if (record.eventName == "REMOVE") 
-        { // entry TTL'd
-            const updateRequestedMessage = {
-                AccountId: keys.AccountId.S,
-                Region: keys.Region.S
-            }
-
-            const message = {
-                Message: JSON.stringify(updateRequestedMessage),
-                TopicArn: process.env.USER_GAMELIST_UPDATE_REQUESTED_TOPIC
-            }
-
-            console.log(`Requesting gamelist update for account ${keys.AccountId.S} in ${keys.Region.S}`)
-            await sns.publish(message).promise()
-        } 
-        else 
-        {
-            console.log(`Skipping event of type ${record.eventName}`)
-        }
+    if (event.Records.length > 1) {
+        console.error(`Received ${event.Records.length} events in the record. What do?`)
+        return context.done(`Received ${event.Records.length} events in the record. What do?`)
     }
+    const record = event.Records[0]
+    const message = JSON.parse(record.Sns.Message)
+    console.log(`Getting game data for account ${message.accountId} in ${message.region}`)
     context.done()
   }
