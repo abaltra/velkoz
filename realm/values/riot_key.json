@@ -1,0 +1,6 @@
+{
+    "id": "5ef188629f7e57fc2f3d1a5e",
+    "name": "riot_key",
+    "value": "RIOT_API_KEY",
+    "from_secret": true
+}

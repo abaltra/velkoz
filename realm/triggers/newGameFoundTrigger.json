@@ -1,0 +1,19 @@
+{
+    "id": "5ef199167ac08571b799dc5f",
+    "name": "newGameFoundTrigger",
+    "type": "DATABASE",
+    "config": {
+        "operation_types": [
+            "INSERT",
+            "UPDATE"
+        ],
+        "database": "velkoz",
+        "collection": "game_update_requests",
+        "service_name": "velkoz",
+        "match": {},
+        "full_document": true,
+        "unordered": true
+    },
+    "function_name": "newGameFoundHandler",
+    "disabled": false
+}

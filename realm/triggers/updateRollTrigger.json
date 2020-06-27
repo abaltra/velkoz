@@ -1,0 +1,18 @@
+{
+    "id": "5ee07b1b527ae39e64916231",
+    "name": "updateRollTrigger",
+    "type": "DATABASE",
+    "config": {
+        "operation_types": [
+            "DELETE"
+        ],
+        "database": "velkoz",
+        "collection": "update_roll",
+        "service_name": "velkoz",
+        "match": {},
+        "full_document": false,
+        "unordered": false
+    },
+    "function_name": "updateRollDeleteHandler",
+    "disabled": false
+}

@@ -15,30 +15,6 @@ resource "mongodbatlas_database_user" "user" {
   }
 }
 
-resource "mongodbatlas_network_container" "velkoz" {
-  project_id       = mongodbatlas_project.velkoz.id
-  atlas_cidr_block = "192.168.208.0/21"
-  provider_name    = "AWS"
-  region_name      = "US_EAST_1"
-}
-
-resource "mongodbatlas_network_peering" "velkoz" {
-  project_id             = mongodbatlas_project.velkoz.id
-  container_id           = mongodbatlas_network_container.velkoz.container_id
-  accepter_region_name   = "us-east-1"
-  provider_name          = "AWS"
-  route_table_cidr_block = aws_vpc.main.cidr_block
-  vpc_id                 = aws_vpc.main.id
-  aws_account_id         = aws_vpc.main.owner_id
-}
-
-resource "mongodbatlas_project_ip_whitelist" "velkoz" {
-  project_id         = mongodbatlas_project.velkoz.id
-  aws_security_group = aws_security_group.open.id
-  comment            = "Velkoz ingress"
-
-  depends_on = [mongodbatlas_network_peering.velkoz]
-}
 #####
 #### Sadly, the TF provider does not support creation of M0 clusters. In the vein of keeping costs down to a minimum, I created the cluster manually
 #####

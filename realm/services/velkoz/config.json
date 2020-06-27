@@ -1,0 +1,11 @@
+{
+    "id": "5ee07b1b527ae39e6491622a",
+    "name": "velkoz",
+    "type": "mongodb-atlas",
+    "config": {
+        "clusterName": "velkoz",
+        "readPreference": "primary",
+        "wireProtocolEnabled": false
+    },
+    "version": 1
+}
